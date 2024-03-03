@@ -1,0 +1,253 @@
+/*
+ * dd.c
+ *
+ *  Created on: Nov 6, 2023
+ *      Author: 20109
+ */
+
+
+/*
+ * HMI_main.c
+ *
+ *  Created on: Nov 6, 2023
+ *      Author: Amira
+ */
+
+
+#include "lcd.h"
+#include "keypad.h"
+#include "uart.h"
+#include "Timer1.h"
+#include "HMI_ECU.h"
+#include <util/delay.h>
+#include <avr/io.h>
+
+#define MC2_READY 0x10
+#define ERROR_ALARM 0x44
+#define MC1_FIRST_ENTER 0x22
+#define MC1_ENTER 0x11
+
+volatile uint16 password_1 = 0;
+volatile uint16 password_2 = 0;
+volatile uint16 password = 0;
+volatile uint16 key_1;
+volatile uint16 key_2;
+volatile uint16 key;
+volatile uint8 visits = 0;
+unsigned char flag;
+unsigned char door_flag = 0;
+
+void Timer1_CallBack(void)
+{
+	door_flag = 1;
+}
+
+void modules_init(void)
+{
+	LCD_init();
+	UART_ConfigType UART_state = {_8_bit_data, disabled, _1_bit, std_baudrate_1};
+	UART_init(&UART_state);
+	SREG |= (1<<7);
+}
+
+void Timer_init(void)
+{
+	Timer1_ConfigType Timer_state = {0, 117188, CLK_1024, CTC}; //to calculate 15 sec
+	Timer1_init(&Timer_state);
+	Timer1_setCallBack(Timer1_CallBack);
+}
+
+
+void Default_Enter(void)
+{
+	while(UART_recieveByte() != MC2_READY){}
+	UART_sendByte(MC1_ENTER);
+	password = 0;
+	while(KEYPAD_getPressedKey() != '=') /* chose '=' as ENTER button */
+	{
+		key = KEYPAD_getPressedKey();
+		if((key <= 9) && (key >= 0))
+		{
+			LCD_displayCharacter('*');
+			_delay_ms(5);
+			password = key + (password * 10);
+		}
+	}
+}
+
+void check(void)
+{
+	while(UART_recieveByte() != MC2_READY){}
+	UART_sendByte(MC1_FIRST_ENTER);
+	while(UART_recieveByte() != MC2_READY){}
+	UART_sendByte(password_1);
+	while(UART_recieveByte() != MC2_READY){}
+	UART_sendByte(password_2);
+	flag = UART_recieveByte();
+	if (flag)
+	{
+		Menu();
+	}
+	else
+	{
+		visits++;
+		while(visits != 3)
+		{
+			First_Enter();
+			while(UART_recieveByte() != MC2_READY){}
+			flag = UART_recieveByte();
+			if (flag) break;
+			visits++;
+		}
+		if (visits == 3)
+			UART_sendByte(ERROR_ALARM);
+		LCD_clearScreen();
+		LCD_moveCursor(0,0);
+		LCD_displayString("**ERROR**");
+		_delay_ms(1000);
+		LCD_clearScreen();
+		First_Enter();
+	}
+
+}
+
+
+void First_Enter(void)
+{
+	LCD_clearScreen();
+	LCD_displayString("Plz Enter Password:");
+	LCD_moveCursor(1,0);
+	while(KEYPAD_getPressedKey != '=') /* chose '=' as ENTER button */
+	{
+		key_1 = KEYPAD_getPressedKey();
+		if((key_1 <= 9) && (key_1 >= 0))
+		{
+			LCD_displayCharacter('*');
+			_delay_ms(5);
+			password_1 = key_1 + (password_1 * 10);
+		}
+	}
+	LCD_moveCursor(0,0);
+	LCD_displayString("Plz re-enter the same password:");
+	LCD_moveCursor(1,0);
+	while(KEYPAD_getPressedKey != '=') /* chose '=' as ENTER button */
+	{
+		key_2 = KEYPAD_getPressedKey();
+		if((key_2 <= 9) && (key_2 >= 0))
+		{
+			LCD_displayCharacter('*');
+			_delay_ms(5);
+			password_2 = key_2 + (password_2 * 10);
+		}
+	}
+	check();
+}
+
+void Open_Door_Enter(void)
+{
+	Default_Enter();
+	while(UART_recieveByte() != MC2_READY){}
+	UART_sendByte(password);
+	flag = UART_recieveByte();
+	if (flag)
+	{
+		LCD_clearScreen();
+		LCD_displayString("DOOR is OPEN");
+		Timer_init();
+		while(door_flag == 0){}
+		Timer1_deInit();
+		door_flag = 0 ;
+		LCD_clearScreen();
+		LCD_displayString("DOOR is closed");
+		Timer_init();
+		while(door_flag == 0){}
+		Timer1_deInit();
+		door_flag = 0 ;
+	}
+	else
+	{
+		visits++;
+		while(visits != 3)
+		{
+			Default_Enter();
+			while(UART_recieveByte() != MC2_READY){}
+			flag = UART_recieveByte();
+			if (flag) break;
+			visits++;
+		}
+		if (visits == 3)
+			UART_sendByte(ERROR_ALARM);
+		LCD_clearScreen();
+		LCD_moveCursor(0,0);
+		LCD_displayString("**ERROR**");
+		_delay_ms(1000);
+		LCD_clearScreen();
+		Menu();
+	}
+}
+
+void Menu(void)
+{
+	uint8 key;
+	LCD_clearScreen();
+	LCD_displayString("+ : Open Door");
+	LCD_moveCursor(1,0);
+	LCD_displayString("- : Change Pass");
+	while(1)
+	{
+		key = KEYPAD_getPressedKey();
+		if (key == '+')
+		{
+			Open_Door_Enter();
+		}
+		if (key == '-')
+		{
+			Change_Pass();
+		}
+	}
+
+}
+
+void Change_Pass(void)
+{
+	Default_Enter();
+	while(UART_recieveByte() != MC2_READY){}
+	UART_sendByte(password);
+	flag = UART_recieveByte();
+	if (flag)
+	{
+		First_Enter();
+	}
+	else
+	{
+		visits++;
+		while(visits != 3)
+		{
+			Default_Enter();
+			while(UART_recieveByte() != MC2_READY){}
+			flag = UART_recieveByte();
+			if (flag) break;
+			visits++;
+		}
+		if (visits == 3)
+			UART_sendByte(ERROR_ALARM);
+		LCD_clearScreen();
+		LCD_moveCursor(0,0);
+		LCD_displayString("**ERROR**");
+		_delay_ms(1000);
+		LCD_clearScreen();
+		Menu();
+	}
+}
+
+
+int main(void)
+{	LCD_init();
+	//modules_init();
+	//First_Enter();
+	while(1)
+	{
+		LCD_displayString("11111");
+
+	}
+}

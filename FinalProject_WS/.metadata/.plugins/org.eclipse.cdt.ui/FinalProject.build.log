@@ -1,0 +1,11 @@
+18:32:51 **** Incremental Build of configuration Debug for project FinalProject ****
+make all 
+Building target: FinalProject.elf
+Invoking: AVR C Linker
+avr-gcc -Wl,-Map,FinalProject.map -mmcu=atmega32 -o "FinalProject.elf"  ./buzzer.o ./external_eeprom.o ./gpio.o ./icu.o ./timer1.o ./twi.o ./uart.o   
+c:/winavr-20100110/bin/../lib/gcc/avr/4.3.3/../../../../avr/lib/avr5/crtm32.o:(.init9+0x0): undefined reference to `main'
+make: *** [FinalProject.elf] Error 1
+"make all" terminated with exit code 2. Build might be incomplete.
+
+18:32:51 Build Failed. 2 errors, 0 warnings. (took 210ms)
+

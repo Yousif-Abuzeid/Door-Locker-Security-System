@@ -1,0 +1,17 @@
+/*
+ * main.c
+ *
+ *  Created on: Nov 6, 2023
+ *      Author: 20109
+ */
+
+
+#include "lcd.h"
+
+
+int main(){
+	LCD_init();
+	while(1){
+		LCD_displayString("1");
+	}
+}

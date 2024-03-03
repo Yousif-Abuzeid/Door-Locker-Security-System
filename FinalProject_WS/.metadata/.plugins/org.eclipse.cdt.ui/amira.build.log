@@ -1,0 +1,20 @@
+03:48:59 **** Incremental Build of configuration Debug for project amira ****
+make all 
+Invoking: Print Size
+avr-size --format=avr --mcu=atmega16 amira.elf
+AVR Memory Usage
+----------------
+Device: atmega16
+
+Program:   15232 bytes (93.0% Full)
+(.text + .data + .bootloader)
+
+Data:        171 bytes (16.7% Full)
+(.data + .bss + .noinit)
+
+
+Finished building: sizedummy
+ 
+
+03:48:59 Build Finished. 0 errors, 0 warnings. (took 154ms)
+
